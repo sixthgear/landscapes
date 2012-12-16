@@ -9,9 +9,9 @@ type Vertex struct {
 }
 
 var colorMap [][3]float32 = [][3]float32{
-	{0.0, 0.0, 0.6},
 	{0.0, 0.0, 0.7},
-	{0.1, 0.1, 0.9},
+	{0.2, 0.5, 1.0},
+	{0.5, 0.5, 0.4},
 	{1.0, 1.0, 0.9},
 	{0.1, 0.4, 0.1},
 	{0.2, 0.2, 0.2},
@@ -25,13 +25,13 @@ var colorMap [][3]float32 = [][3]float32{
 	{0.3, 0.3, 0.3},
 	{0.3, 0.3, 0.3},
 	{0.3, 0.3, 0.3},
-	{0.3, 0.3, 0.3},
-	{0.3, 0.3, 0.3},
-	{1.0, 1.0, 1.0},
-	{1.0, 1.0, 1.0},
-	{1.0, 1.0, 1.0},
 	{1.0, 1.0, 1.0},
 }
+
+const (
+	RIGHT = iota
+	LEFT
+)
 
 type Map struct {
 	width, depth int
@@ -67,14 +67,16 @@ func GenerateMap(width, depth int, gridSize int) *Map {
 	diag := math.Hypot(float64(m.width/2), float64(m.depth/2))
 	for z := 0; z < depth; z++ {
 		for x := 0; x < width; x++ {
-			fx := float64(x)
+
+			fx := float64(x) + float64(z%2)*0.5
 			fz := float64(z)
+
 			d := math.Hypot(float64(m.width/2)-fx, float64(m.depth/2)-fz)
 			d = 1.0 - d/diag
-			h := noise.OctaveNoise2d(fx, fz, 4, 0.25, 1.0/24)
+			h := noise.OctaveNoise2d(fx, fz, 4, 0.25, 1.0/28)
 			h = (h + 1.0) * 0.5
 			h = math.Sqrt(h) * 1024 * (math.Pow(d, 2))
-			h = math.Max(h, 64)
+			h = math.Max(h, 120)
 			m.heightMap = append(m.heightMap, float32(h))
 			m.minHeight = math.Min(m.minHeight, h)
 			m.maxHeight = math.Max(m.maxHeight, h)
@@ -102,79 +104,73 @@ func (m *Map) getColorForVertex(v Vertex) [3]float32 {
 	for i := 0; i < 3; i++ {
 		color[i] = c0[i] + (c1[i]-c0[i])*float32(f)
 		if n > 2 {
-			color[i] += float32(noise.OctaveNoise3d(float64(v.x), float64(v.y), float64(v.z), 1, 0.25, 1/32.0)) * 0.04
+			color[i] += float32(noise.OctaveNoise2d(float64(v.x), float64(v.z), 1, 0.25, 1/32.0)) * 0.04
 		}
 
 	}
 	return color
 }
 
-func (m *Map) BuildVertices() {
+func (m *Map) PlaceVertex(x, z int) Vertex {
 
 	s := m.gridSize
 
+	xOffset := float32(z % 2 * s / 2)
+	vx := xOffset + float32(x*s)
+	vy := m.heightMap[z*m.width+x]
+	vz := float32(z * s)
+
+	return Vertex{vx, vy, vz}
+}
+
+func (m *Map) BuildVertices() {
+
 	for i := 0; i < (m.depth-1)*(m.width); i++ {
 
-		var v0, v1 Vertex
-		var n0, n1 Vertex
-		x0 := 0
-		z0 := i / (m.width)
-		z1 := z0 + 1
+		x := i % (m.width)
+		z := i / (m.width)
+		num := 2
+		dir := z % 2
 
-		skip := false
-
-		if z0%2 == 0 {
-			// even rows go right
-			x0 = i % (m.width)
-			skip = x0 == 0 && z0 != 0
-		} else {
-			// odd rows go left                
-			x0 = (m.width - 1) - (i % (m.width))
-			skip = x0 == m.width-1
+		if dir == LEFT {
+			x = (m.width - 1) - x
+		}
+		if dir == RIGHT && x == 0 && z > 0 {
+			num = 1
+		}
+		if dir == LEFT && x == m.width-1 {
+			num = 1
 		}
 
-		if !skip {
-			v0 = Vertex{float32(x0 * s), m.heightMap[z0*m.width+x0], float32(z0 * s)}
-			n0 = m.GetNormal(v0, x0, z0)
-			c0 := m.getColorForVertex(v0)
-			m.vertices = append(m.vertices, v0.x, v0.y, v0.z)
-			m.normals = append(m.normals, n0.x, n0.y, n0.z)
-			m.texcoords = append(m.texcoords, float32(x0)/8, -float32(z0)/8)
-			m.colors = append(m.colors, c0[0], c0[1], c0[2])
+		for j := 2 - num; j <= 1; j++ {
+			v := m.PlaceVertex(x, z+j)
+			n := m.GetNormal(v, x, z+j)
+			c := m.getColorForVertex(v)
+			m.vertices = append(m.vertices, v.x, v.y, v.z)
+			m.normals = append(m.normals, n.x, n.y, n.z)
+			m.colors = append(m.colors, c[0], c[1], c[2])
 		}
 
-		v1 = Vertex{float32(x0 * s), m.heightMap[z1*m.width+x0], float32(z1 * s)}
-		n1 = m.GetNormal(v1, x0, z1)
-		c1 := m.getColorForVertex(v1)
-		m.vertices = append(m.vertices, v1.x, v1.y, v1.z)
-		m.normals = append(m.normals, n1.x, n1.y, n1.z)
-		m.texcoords = append(m.texcoords, float32(x0)/8, -float32(z1)/8)
-		m.colors = append(m.colors, c1[0], c1[1], c1[2])
 	}
 
 }
 
 func (m *Map) GetNormal(v Vertex, x, z int) (normal Vertex) {
 
-	s := m.gridSize
-
-	// if normal_cache.has_key((x,z)):
-	//     return normal_cache[(x,z)]
-
 	var neighbors []Vertex
 	var sum Vertex
 
 	if x > 0 {
-		neighbors = append(neighbors, Vertex{float32((x - 1) * s), m.heightMap[z*m.width+(x-1)], float32(z * s)})
+		neighbors = append(neighbors, m.PlaceVertex(x-1, z))
 	}
 	if z > 0 {
-		neighbors = append(neighbors, Vertex{float32(x * s), m.heightMap[(z-1)*m.width+x], float32((z - 1) * s)})
+		neighbors = append(neighbors, m.PlaceVertex(x, z-1))
 	}
 	if x < m.width-1 {
-		neighbors = append(neighbors, Vertex{float32((x + 1) * s), m.heightMap[z*m.width+(x+1)], float32(z * s)})
+		neighbors = append(neighbors, m.PlaceVertex(x+1, z))
 	}
 	if z < m.depth-1 {
-		neighbors = append(neighbors, Vertex{float32(x * s), m.heightMap[(z+1)*m.width+x], float32((z + 1) * s)})
+		neighbors = append(neighbors, m.PlaceVertex(x, z+1))
 	}
 
 	for i, n1 := range neighbors {
@@ -202,7 +198,7 @@ func (m *Map) GetNormal(v Vertex, x, z int) (normal Vertex) {
 	if normal.y < 0 {
 		normal.y *= -1
 	}
-	// normal_cache[(x,z)] = normal
+
 	return normal
 }
 
@@ -223,9 +219,14 @@ func (m *Map) Draw() {
 	gl.EnableClientState(gl.COLOR_ARRAY)
 	gl.ColorPointer(3, gl.FLOAT, 0, m.colors)
 
-	//draw solids
+	// draw solids
 	gl.Enable(gl.COLOR_MATERIAL)
 	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, len(m.vertices)/3)
+
+	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+	// gl.LineWidth(1.0)
+	// gl.Color4f(1, 1, 1, 1)
+	// gl.DrawArrays(gl.TRIANGLE_STRIP, 0, len(m.vertices)/3)
 
 	gl.PopAttrib()
 	gl.PopMatrix()

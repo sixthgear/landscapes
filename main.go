@@ -27,7 +27,7 @@ func main() {
 	gl.Enable(gl.LIGHT0)
 	gl.Enable(gl.LIGHTING)
 	gl.Lightfv(gl.LIGHT0, gl.POSITION, []float32{0, 1, 0.2, 0})
-	gl.Lightfv(gl.LIGHT0, gl.AMBIENT, []float32{0.1, 0.1, 0.1, 1})
+	gl.Lightfv(gl.LIGHT0, gl.AMBIENT, []float32{0.0, 0.0, 0.0, 1})
 	gl.Lightfv(gl.LIGHT0, gl.DIFFUSE, []float32{0.75, 0.75, 0.75, 1})
 	gl.Lightfv(gl.LIGHT0, gl.SPECULAR, []float32{1, 1, 1, 1})
 
@@ -46,7 +46,7 @@ func main() {
 
 	for glfw.WindowParam(glfw.Opened) == 1 {
 
-		rot += 0.5
+		rot += 0.125
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
