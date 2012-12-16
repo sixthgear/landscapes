@@ -4,20 +4,14 @@ import "math"
 import "noise"
 import "github.com/go-gl/gl"
 
-// import "log"
-// import "fmt"
-// import "math/rand"
-// import "github.com/go-gl/glfw"
-
 type Vertex struct {
 	x, y, z float32
 }
 
 var colorMap [][3]float32 = [][3]float32{
-	{0.0, 0.0, 0.5},
+	{0.0, 0.0, 0.6},
 	{0.0, 0.0, 0.7},
 	{0.1, 0.1, 0.9},
-	{1.0, 1.0, 0.9},
 	{1.0, 1.0, 0.9},
 	{0.1, 0.4, 0.1},
 	{0.2, 0.2, 0.2},
@@ -31,6 +25,10 @@ var colorMap [][3]float32 = [][3]float32{
 	{0.3, 0.3, 0.3},
 	{0.3, 0.3, 0.3},
 	{0.3, 0.3, 0.3},
+	{0.3, 0.3, 0.3},
+	{0.3, 0.3, 0.3},
+	{1.0, 1.0, 1.0},
+	{1.0, 1.0, 1.0},
 	{1.0, 1.0, 1.0},
 	{1.0, 1.0, 1.0},
 }
@@ -63,6 +61,8 @@ func GenerateMap(width, depth int, gridSize int) *Map {
 	m.width = width
 	m.depth = depth
 	m.gridSize = gridSize
+	m.minHeight = 1000000
+	m.maxHeight = 0
 
 	diag := math.Hypot(float64(m.width/2), float64(m.depth/2))
 	for z := 0; z < depth; z++ {
@@ -71,26 +71,15 @@ func GenerateMap(width, depth int, gridSize int) *Map {
 			fz := float64(z)
 			d := math.Hypot(float64(m.width/2)-fx, float64(m.depth/2)-fz)
 			d = 1.0 - d/diag
-			h := noise.OctaveNoise2d(fx, fz, 4, 0.25, 1.0/120)
+			h := noise.OctaveNoise2d(fx, fz, 4, 0.25, 1.0/24)
 			h = (h + 1.0) * 0.5
-			h = (h + d*0.25) * 768 * (d * d)
+			h = math.Sqrt(h) * 1024 * (math.Pow(d, 2))
+			h = math.Max(h, 64)
 			m.heightMap = append(m.heightMap, float32(h))
 			m.minHeight = math.Min(m.minHeight, h)
 			m.maxHeight = math.Max(m.maxHeight, h)
 		}
 	}
-
-	// gl.Enable(gl.TEXTURE_2D)
-	// m.texture = gl.GenTexture()
-	// m.texture.Bind(gl.TEXTURE_2D)
-
-	// if !glfw.LoadTexture2D("rock.tga", glfw.BuildMipmapsBit) {
-	// 	log.Fatal("Failed to load texture!")
-	// }
-
-	// gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	// gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
-	// m.texture.Unbind(gl.TEXTURE_2D)
 
 	return m
 }
@@ -113,7 +102,7 @@ func (m *Map) getColorForVertex(v Vertex) [3]float32 {
 	for i := 0; i < 3; i++ {
 		color[i] = c0[i] + (c1[i]-c0[i])*float32(f)
 		if n > 2 {
-			color[i] += float32(noise.OctaveNoise3d(float64(v.x), float64(v.y), float64(v.z), 4, 0.5, 2.0)) * 0.05
+			color[i] += float32(noise.OctaveNoise3d(float64(v.x), float64(v.y), float64(v.z), 1, 0.25, 1/32.0)) * 0.04
 		}
 
 	}
@@ -222,33 +211,21 @@ func (m *Map) Draw() {
 	gl.PushMatrix()
 	gl.PushAttrib(gl.CURRENT_BIT | gl.ENABLE_BIT | gl.LIGHTING_BIT | gl.POLYGON_BIT | gl.LINE_BIT)
 
-	// set wireframe details
-	gl.LineWidth(0.4)
-
 	gl.EnableClientState(gl.VERTEX_ARRAY)
 	gl.VertexPointer(3, gl.FLOAT, 0, m.vertices)
 
 	gl.EnableClientState(gl.NORMAL_ARRAY)
 	gl.NormalPointer(gl.FLOAT, 0, m.normals)
 
-	gl.EnableClientState(gl.TEXTURE_COORD_ARRAY)
-	gl.TexCoordPointer(2, gl.FLOAT, 0, m.texcoords)
+	// gl.EnableClientState(gl.TEXTURE_COORD_ARRAY)
+	// gl.TexCoordPointer(2, gl.FLOAT, 0, m.texcoords)
 
 	gl.EnableClientState(gl.COLOR_ARRAY)
 	gl.ColorPointer(3, gl.FLOAT, 0, m.colors)
 
 	//draw solids
 	gl.Enable(gl.COLOR_MATERIAL)
-	gl.Color4f(1, 1, 1, 1)
-	// gl.Enable(gl.TEXTURE_2D)
-	// m.texture.Bind(gl.TEXTURE_2D)
 	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, len(m.vertices)/3)
-	// m.texture.Unbind(gl.TEXTURE_2D)
-
-	// draw wireframe
-	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
-	// gl.Color4f(0.1, 0.1, 0.1, 0.2)
-	// gl.DrawArrays(gl.TRIANGLE_STRIP, 0, len(m.vertices)/3)
 
 	gl.PopAttrib()
 	gl.PopMatrix()

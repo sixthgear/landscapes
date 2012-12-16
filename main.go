@@ -21,7 +21,7 @@ func main() {
 	glfw.SetWindowTitle("Landscapes")
 	glfw.SetSwapInterval(1)
 
-	m := GenerateMap(640, 640, 4)
+	m := GenerateMap(160, 160, 16)
 	m.BuildVertices()
 
 	gl.Enable(gl.LIGHT0)
@@ -64,15 +64,7 @@ func main() {
 		gl.Rotatef(rot, 0, 1, 0)
 		gl.Translatef(-cx, -cy, -cz)
 
-		// gl.Rotatef(rot, 0, 1, 0)
-
-		// gl.Rotatef(0, 0, 0, 1)
-
-		// gl.Translatef(0, 0, 0) // -340, -750)
-		// gl.Translatef(cx, cy, cz)
-
 		m.Draw()
-
 		glfw.SwapBuffers()
 	}
 
