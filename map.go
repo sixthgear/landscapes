@@ -1,7 +1,7 @@
 package main
 
 import "math"
-import "noise"
+import "github.com/sixthgear/noise"
 import "github.com/go-gl/gl"
 
 type Vertex struct {
@@ -221,12 +221,12 @@ func (m *Map) Draw() {
 
 	// draw solids
 	gl.Enable(gl.COLOR_MATERIAL)
-	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, len(m.vertices)/3)
+	// gl.DrawArrays(gl.TRIANGLE_STRIP, 0, len(m.vertices)/3)
 
 	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
-	// gl.LineWidth(1.0)
-	// gl.Color4f(1, 1, 1, 1)
-	// gl.DrawArrays(gl.TRIANGLE_STRIP, 0, len(m.vertices)/3)
+	gl.LineWidth(1.0)
+	gl.Color4f(1, 1, 1, 1)
+	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, len(m.vertices)/3)
 
 	gl.PopAttrib()
 	gl.PopMatrix()
